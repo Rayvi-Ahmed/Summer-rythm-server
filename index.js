@@ -27,9 +27,6 @@ const verifyJwt = (req, res, next) => {
     })
 
 }
-
-
-
 app.get('/', (req, res) => {
     res.send('Tunig on the rythme')
 })
@@ -50,6 +47,7 @@ async function run() {
         // Connect the client to the server	(optional starting in v4.7)
         await client.connect();
         const studentCollection = client.db('MusicClass').collection('student')
+        const classCollection = client.db('MusicClass').collection('classes')
 
         app.post('/jwt', (req, res) => {
             const student = req.body
@@ -57,6 +55,7 @@ async function run() {
             res.send({ token })
 
         })
+
 
         // default Student post from client side
         app.post('/student', async (req, res) => {
@@ -85,36 +84,53 @@ async function run() {
             }
             const query = { email: email }
             const user = await studentCollection.findOne(query)
-            const result = { admin: user.role === 'admin' }
+            const result = { admin: user?.role === 'admin' }
             res.send(result)
-
         })
-        app.get('/student/instructor/:email', verifyJwt, async (req, res) => {
-            const email = req.params.email
 
-            if (req.decoded.email !== email) {
-                res.send({ instructor: false })
-            }
-            const query = { email: email }
-            const user = await studentCollection.findOne(query)
-            const result = { admin: user.profassion === 'instructor' }
-            res.send(result)
 
-        })
+
+        // app.get('/student/instructor/:email', verifyJwt, async (req, res) => {
+        //     const email = req.params.email
+
+        //     if (req.decoded.email !== email) {
+        //         res.send({ instructor: false })
+        //     }8
+        //     const query = { email: email }
+        //     const user = await studentCollection.findOne(query)
+        //     const result = { admin: user?.role === 'instructor' }
+        //     res.send(result)
+
+        // })
 
 
         // default Student upadte for admin & instructor API
+
         app.patch('/student/admin/:id', async (req, res) => {
             const id = req.params.id
-            console.log(id)
             const filter = { _id: new ObjectId(id) }
             const updateDoc = {
                 $set: {
                     role: 'admin',
-                    profassion: 'instructor'
                 }
             }
             const result = await studentCollection.updateOne(filter, updateDoc)
+            res.send(result)
+        })
+
+        // classes API >>>> POST class/////
+
+        app.post('/classes', async (req, res) => {
+            const newclasses = req.body
+            const result = await classCollection.insertOne(newclasses)
+            res.send(result)
+        })
+
+
+        app.delete('/student/admin/:id', async (req, res) => {
+            const id = req.params.id
+            const query = { _id: new ObjectId(id) }
+            const result = await studentCollection.deleteOne(query)
             res.send(result)
         })
 
