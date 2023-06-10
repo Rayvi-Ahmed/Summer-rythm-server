@@ -80,7 +80,7 @@ async function run() {
             const email = req.params.email
 
             if (req.decoded.email !== email) {
-                res.send({ admin: false })
+                return res.send({ admin: false })
             }
             const query = { email: email }
             const user = await studentCollection.findOne(query)
@@ -112,6 +112,18 @@ async function run() {
             const updateDoc = {
                 $set: {
                     role: 'admin',
+                }
+            }
+            const result = await studentCollection.updateOne(filter, updateDoc)
+            res.send(result)
+        })
+
+        app.patch('/student/instructor/:id', async (req, res) => {
+            const id = req.params.id
+            const filter = { _id: new ObjectId(id) }
+            const updateDoc = {
+                $set: {
+                    role: 'instructor',
                 }
             }
             const result = await studentCollection.updateOne(filter, updateDoc)
