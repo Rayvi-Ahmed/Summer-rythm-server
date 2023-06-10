@@ -76,6 +76,7 @@ async function run() {
 
         })
 
+        // useAdmin API////
         app.get('/student/admin/:email', verifyJwt, async (req, res) => {
             const email = req.params.email
 
@@ -89,19 +90,19 @@ async function run() {
         })
 
 
+        // useInstructor API////
+        app.get('/student/instructor/:email', verifyJwt, async (req, res) => {
+            const email = req.params.email
 
-        // app.get('/student/instructor/:email', verifyJwt, async (req, res) => {
-        //     const email = req.params.email
+            if (req.decoded.email !== email) {
+                return res.send({ instructor: false })
+            }
+            const query = { email: email }
+            const user = await studentCollection.findOne(query)
+            const result = { admin: user?.role === 'instructor' }
+            res.send(result)
 
-        //     if (req.decoded.email !== email) {
-        //         res.send({ instructor: false })
-        //     }8
-        //     const query = { email: email }
-        //     const user = await studentCollection.findOne(query)
-        //     const result = { admin: user?.role === 'instructor' }
-        //     res.send(result)
-
-        // })
+        })
 
 
         // default Student upadte for admin & instructor API
@@ -135,6 +136,35 @@ async function run() {
         app.post('/classes', async (req, res) => {
             const newclasses = req.body
             const result = await classCollection.insertOne(newclasses)
+            res.send(result)
+        })
+
+        app.get('/classes', async (req, res) => {
+            const result = await classCollection.find().toArray()
+            res.send(result)
+        })
+
+        app.patch('/classes/approve/:id', async (req, res) => {
+            const id = req.params.id
+            const filter = { _id: new ObjectId(id) }
+            const updateDoc = {
+                $set: {
+                    status: 'approve',
+                }
+            }
+            const result = await classCollection.updateOne(filter, updateDoc)
+            res.send(result)
+        })
+
+        app.patch('/classes/deny/:id', async (req, res) => {
+            const id = req.params.id
+            const filter = { _id: new ObjectId(id) }
+            const updateDoc = {
+                $set: {
+                    status: 'denied',
+                }
+            }
+            const result = await classCollection.updateOne(filter, updateDoc)
             res.send(result)
         })
 
