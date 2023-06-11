@@ -48,6 +48,8 @@ async function run() {
         await client.connect();
         const studentCollection = client.db('MusicClass').collection('student')
         const classCollection = client.db('MusicClass').collection('classes')
+        const bookedCollection = client.db('MusicClass').collection('booked')
+
 
         app.post('/jwt', (req, res) => {
             const student = req.body
@@ -99,7 +101,7 @@ async function run() {
             }
             const query = { email: email }
             const user = await studentCollection.findOne(query)
-            const result = { admin: user?.role === 'instructor' }
+            const result = { instructor: user?.role === 'instructor' }
             res.send(result)
 
         })
@@ -144,50 +146,70 @@ async function run() {
             res.send(result)
         })
 
-        app.patch('/classes/approve/:id', async (req, res) => {
-            const id = req.params.id
-            const filter = { _id: new ObjectId(id) }
-            const updateDoc = {
-                $set: {
-                    status: 'approve',
+        app.post('/booked', async (req, res) => {
+            const course = req.body
+            console.log(course)
+            const result = await bookedCollection.insertOne(course)
+            res.send(result)
+
+
+            app.get('/booked', async (req, res) => {
+                const email = req.query.email
+                if (!email) {
+                    return res.send([])
                 }
-            }
-            const result = await classCollection.updateOne(filter, updateDoc)
-            res.send(result)
-        })
+                const query = { email: email }
+                const result = await bookedCollection.find(query).toArray()
+                res.send(result)
+            })
 
-        app.patch('/classes/deny/:id', async (req, res) => {
-            const id = req.params.id
-            const filter = { _id: new ObjectId(id) }
-            const updateDoc = {
-                $set: {
-                    status: 'denied',
+
+
+            app.patch('/classes/approve/:id', async (req, res) => {
+                const id = req.params.id
+                const filter = { _id: new ObjectId(id) }
+                const updateDoc = {
+                    $set: {
+                        status: 'approve',
+                    }
                 }
-            }
-            const result = await classCollection.updateOne(filter, updateDoc)
-            res.send(result)
-        })
+                const result = await classCollection.updateOne(filter, updateDoc)
+                res.send(result)
+            })
+
+            app.patch('/classes/deny/:id', async (req, res) => {
+                const id = req.params.id
+                const filter = { _id: new ObjectId(id) }
+                const updateDoc = {
+                    $set: {
+                        status: 'denied',
+                    }
+                }
+                const result = await classCollection.updateOne(filter, updateDoc)
+                res.send(result)
+            })
 
 
-        app.delete('/student/admin/:id', async (req, res) => {
-            const id = req.params.id
-            const query = { _id: new ObjectId(id) }
-            const result = await studentCollection.deleteOne(query)
-            res.send(result)
-        })
+            app.delete('/student/admin/:id', async (req, res) => {
+                const id = req.params.id
+                const query = { _id: new ObjectId(id) }
+                const result = await studentCollection.deleteOne(query)
+                res.send(result)
+            })
 
 
-        // Send a ping to confirm a successful connection
-        await client.db("admin").command({ ping: 1 });
-        console.log("Pinged your deployment. You successfully connected to MongoDB!");
-    } finally {
-        // Ensures that the client will close when you finish/error
-        // await client.close();
+
+            // Send a ping to confirm a successful connection
+            await client.db("admin").command({ ping: 1 });
+            console.log("Pinged your deployment. You successfully connected to MongoDB!");
+        } finally {
+            // Ensures that the client will close when you finish/error
+            // await client.close();
+        }
     }
-}
 run().catch(console.dir);
 
 
-app.listen(port, () => {
-    console.log(`Rythm of music is running now${port}`)
-})
+    app.listen(port, () => {
+        console.log(`Rythm of music is running now${port}`)
+    })
