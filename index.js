@@ -3,6 +3,7 @@ const cors = require('cors')
 const jwt = require('jsonwebtoken')
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 require('dotenv').config()
+// const stripe = require("stripe")(process.env.PAYMENT_SECRET_KEY)
 const app = express()
 const port = process.env.PORT || 5000;
 
@@ -49,6 +50,7 @@ async function run() {
         const studentCollection = client.db('MusicClass').collection('student')
         const classCollection = client.db('MusicClass').collection('classes')
         const bookedCollection = client.db('MusicClass').collection('booked')
+        const paymentCollection = client.db('MusicClass').collection('payment')
 
 
         app.post('/jwt', (req, res) => {
@@ -76,6 +78,13 @@ async function run() {
             const result = await studentCollection.find().toArray()
             res.send(result)
 
+        })
+
+
+        // API for load all Instructors////
+        app.get('/student/instructor', async (req, res) => {
+            const result = await studentCollection.find().toArray()
+            res.send(result)
         })
 
         // useAdmin API////
@@ -146,70 +155,96 @@ async function run() {
             res.send(result)
         })
 
+
+
+
         app.post('/booked', async (req, res) => {
             const course = req.body
             console.log(course)
             const result = await bookedCollection.insertOne(course)
             res.send(result)
 
+        })
 
-            app.get('/booked', async (req, res) => {
-                const email = req.query.email
-                if (!email) {
-                    return res.send([])
+        app.get('/booked', async (req, res) => {
+            const email = req.query.email
+            if (!email) {
+                return res.send([])
+            }
+            const query = { email: email }
+            const result = await bookedCollection.find(query).toArray()
+            res.send(result)
+        })
+
+
+
+        app.patch('/classes/approve/:id', async (req, res) => {
+            const id = req.params.id
+            const filter = { _id: new ObjectId(id) }
+            const updateDoc = {
+                $set: {
+                    status: 'approve',
                 }
-                const query = { email: email }
-                const result = await bookedCollection.find(query).toArray()
-                res.send(result)
-            })
+            }
+            const result = await classCollection.updateOne(filter, updateDoc)
+            res.send(result)
+        })
 
-
-
-            app.patch('/classes/approve/:id', async (req, res) => {
-                const id = req.params.id
-                const filter = { _id: new ObjectId(id) }
-                const updateDoc = {
-                    $set: {
-                        status: 'approve',
-                    }
+        app.patch('/classes/deny/:id', async (req, res) => {
+            const id = req.params.id
+            const filter = { _id: new ObjectId(id) }
+            const updateDoc = {
+                $set: {
+                    status: 'denied',
                 }
-                const result = await classCollection.updateOne(filter, updateDoc)
-                res.send(result)
+            }
+            const result = await classCollection.updateOne(filter, updateDoc)
+            res.send(result)
+        })
+
+
+        app.delete('/student/admin/:id', async (req, res) => {
+            const id = req.params.id
+            const query = { _id: new ObjectId(id) }
+            const result = await studentCollection.deleteOne(query)
+            res.send(result)
+        })
+
+
+        // Payment API Create///
+        app.post('/create-payment-intent', async (req, res) => {
+            const { price } = req.body
+            const amount = price * 100
+            const paymentIntent = await stripe.paymentIntents.create({
+                amount: amount,
+                currency: 'usd',
+                payment_method_types: ['card']
+
+
+            });
+            res.send({
+                clinetSecret: paymentIntent.client_secret
             })
+        })
 
-            app.patch('/classes/deny/:id', async (req, res) => {
-                const id = req.params.id
-                const filter = { _id: new ObjectId(id) }
-                const updateDoc = {
-                    $set: {
-                        status: 'denied',
-                    }
-                }
-                const result = await classCollection.updateOne(filter, updateDoc)
-                res.send(result)
-            })
+        app.post('/payments', async (req, res) => {
+            const payment = req.body
+            const result = await paymentCollection.insertOne(payment)
+            res.send(result)
+        })
 
 
-            app.delete('/student/admin/:id', async (req, res) => {
-                const id = req.params.id
-                const query = { _id: new ObjectId(id) }
-                const result = await studentCollection.deleteOne(query)
-                res.send(result)
-            })
-
-
-
-            // Send a ping to confirm a successful connection
-            await client.db("admin").command({ ping: 1 });
-            console.log("Pinged your deployment. You successfully connected to MongoDB!");
-        } finally {
-            // Ensures that the client will close when you finish/error
-            // await client.close();
-        }
+        // Send a ping to confirm a successful connection
+        await client.db("admin").command({ ping: 1 });
+        console.log("Pinged your deployment. You successfully connected to MongoDB!");
+    } finally {
+        // Ensures that the client will close when you finish/error
+        // await client.close();
     }
+}
 run().catch(console.dir);
 
 
-    app.listen(port, () => {
-        console.log(`Rythm of music is running now${port}`)
-    })
+app.listen(port, () => {
+    console.log(`Rythm of music is running now${port}`)
+})
