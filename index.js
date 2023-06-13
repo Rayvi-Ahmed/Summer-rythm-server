@@ -165,13 +165,10 @@ async function run() {
 
         })
 
-
         app.get('/classes', async (req, res) => {
             const result = await classCollection.find().toArray()
             res.send(result)
         })
-
-
 
 
         app.post('/booked', async (req, res) => {
@@ -198,8 +195,6 @@ async function run() {
             const result = await bookedCollection.findOne(query)
             res.send(result)
         })
-
-
 
         app.patch('/classes/approve/:id', async (req, res) => {
             const id = req.params.id
@@ -300,6 +295,16 @@ async function run() {
             res.send({ insertResult, deleteResult })
         })
 
+
+        app.get('/payments', async (req, res) => {
+            const email = req.query.email
+            if (!email) {
+                return res.send([])
+            }
+            const query = { email: email }
+            const result = await paymentCollection.find(query).toArray()
+            res.send(result)
+        })
 
 
         // Send a ping to confirm a successful connection
