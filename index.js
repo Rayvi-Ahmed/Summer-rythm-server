@@ -3,8 +3,9 @@ const cors = require('cors')
 const jwt = require('jsonwebtoken')
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 require('dotenv').config()
-// const stripe = require("stripe")(process.env.PAYMENT_SECRET_KEY)
 const app = express()
+const stripe = require("stripe")(process.env.PAYMENT_SECRET_KEY)
+
 const port = process.env.PORT || 5000;
 
 // Middleware///
@@ -50,7 +51,8 @@ async function run() {
         const studentCollection = client.db('MusicClass').collection('student')
         const classCollection = client.db('MusicClass').collection('classes')
         const bookedCollection = client.db('MusicClass').collection('booked')
-        const paymentCollection = client.db('MusicClass').collection('payment')
+        const paymentCollection = client.db('MusicClass').collection('payments')
+        const enrollCollection = client.db('MusicClass').collection('enroll')
 
 
         app.post('/jwt', (req, res) => {
@@ -59,6 +61,8 @@ async function run() {
             res.send({ token })
 
         })
+
+        console.log(process.env.PAYMENT_SECRET_KEY)
 
 
         // default Student post from client side
@@ -150,6 +154,18 @@ async function run() {
             res.send(result)
         })
 
+        app.get('/classes/add/:email', async (req, res) => {
+            const email = req.params.email
+            if (!email) {
+                return res.send([])
+            }
+            const query = { email: email }
+            const result = await classCollection.find(query).toArray()
+            res.send(result)
+
+        })
+
+
         app.get('/classes', async (req, res) => {
             const result = await classCollection.find().toArray()
             res.send(result)
@@ -173,6 +189,13 @@ async function run() {
             }
             const query = { email: email }
             const result = await bookedCollection.find(query).toArray()
+            res.send(result)
+        })
+
+        app.get('/booked/:id', async (req, res) => {
+            const id = req.params.id
+            const query = { _id: new ObjectId(id) }
+            const result = await bookedCollection.findOne(query)
             res.send(result)
         })
 
@@ -212,26 +235,71 @@ async function run() {
 
 
         // Payment API Create///
-        app.post('/create-payment-intent', async (req, res) => {
+        app.post('/create-payment-intent', verifyJwt, async (req, res) => {
+            console.log('hello')
             const { price } = req.body
-            const amount = price * 100
+            const amount = (price) * 100
             const paymentIntent = await stripe.paymentIntents.create({
+
                 amount: amount,
-                currency: 'usd',
+                currency: 'aud',
                 payment_method_types: ['card']
 
-
             });
+            console.log(amount)
             res.send({
-                clinetSecret: paymentIntent.client_secret
+                clientSecret: paymentIntent.client_secret
             })
         })
 
-        app.post('/payments', async (req, res) => {
+
+        // app.post('/payments', async (req, res) => {
+        //     const payment = req.body
+        //     try {
+        //         const insertResult = await paymentCollection.insertOne(payment)
+        //         const email = payment.email
+        //         const query = { email: email }
+        //         const classDoc = await bookedCollection.findOne(query)
+        //         if (!classDoc) {
+        //             return res.status(404).send({ error: 'class not found' })
+        //         }
+        //         if (classDoc.seat === 0) {
+        //             return res.status(400).send({ error: 'No Available Seat' })
+
+        //         }
+        //         const updateResult = await enrollCollection.insertOne(classDoc)
+        //         await bookedCollection.deleteOne(query)
+        //         enrollCollection.updateOne({ _id: classDoc._id },
+        //             {
+        //                 $inc: {
+        //                     totalEnrollStudent: 1
+        //                 }
+        //             }
+        //         )
+        //         res.send({ insertResult, updateResult })
+
+
+        //     }
+        //     catch {
+        //         return res.status(500).send({ error: 'class not found' })
+        //     }
+
+
+        // })
+
+
+        app.post('/payments', verifyJwt, async (req, res) => {
             const payment = req.body
-            const result = await paymentCollection.insertOne(payment)
-            res.send(result)
+            payment.date = new Date()
+            const id = payment.selectedId
+            const insertResult = await paymentCollection.insertOne(payment)
+
+            const query = { _id: new ObjectId(id) }
+            const deleteResult = await bookedCollection.deleteOne(query)
+
+            res.send({ insertResult, deleteResult })
         })
+
 
 
         // Send a ping to confirm a successful connection
