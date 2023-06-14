@@ -47,12 +47,12 @@ const client = new MongoClient(uri, {
 async function run() {
     try {
         // Connect the client to the server	(optional starting in v4.7)
-        await client.connect();
+        // await client.connect();
         const studentCollection = client.db('MusicClass').collection('student')
         const classCollection = client.db('MusicClass').collection('classes')
         const bookedCollection = client.db('MusicClass').collection('booked')
         const paymentCollection = client.db('MusicClass').collection('payments')
-        const enrollCollection = client.db('MusicClass').collection('enroll')
+
 
 
         app.post('/jwt', (req, res) => {
@@ -62,11 +62,31 @@ async function run() {
 
         })
 
-        console.log(process.env.PAYMENT_SECRET_KEY)
+
+        // Admin Veryfy token///
+
+        const verifyAdmin = async (req, res, next) => {
+            const email = req.decoded.email;
+            const query = { email: email }
+            const user = await studentCollection.findOne(query);
+            if (user?.role !== 'admin') {
+                return res.status(403).send({ error: true, message: 'forbidden message' });
+            }
+            next();
+        }
+        const verifyInstrctor = async (req, res, next) => {
+            const email = req.decoded.email;
+            const query = { email: email }
+            const user = await studentCollection.findOne(query);
+            if (user?.role !== 'instructor') {
+                return res.status(403).send({ error: true, message: 'forbidden message' });
+            }
+            next();
+        }
 
 
         // default Student post from client side
-        app.post('/student', async (req, res) => {
+        app.post('/student', verifyJwt, verifyAdmin, async (req, res) => {
             const student = req.body
             const query = { email: student.email }
             const existingStudent = await studentCollection.findOne(query)
@@ -78,7 +98,8 @@ async function run() {
         })
 
         // default Student get API
-        app.get('/student', async (req, res) => {
+
+        app.get('/student', verifyJwt, verifyAdmin, async (req, res) => {
             const result = await studentCollection.find().toArray()
             res.send(result)
 
@@ -86,13 +107,14 @@ async function run() {
 
 
         // API for load all Instructors////
-        app.get('/student/instructor', async (req, res) => {
+        app.get('/student/instructor', verifyJwt, verifyAdmin, async (req, res) => {
             const result = await studentCollection.find().toArray()
             res.send(result)
         })
 
         // useAdmin API////
-        app.get('/student/admin/:email', verifyJwt, async (req, res) => {
+
+        app.get('/student/admin/:email', verifyJwt, verifyAdmin, async (req, res) => {
             const email = req.params.email
 
             if (req.decoded.email !== email) {
@@ -106,7 +128,7 @@ async function run() {
 
 
         // useInstructor API////
-        app.get('/student/instructor/:email', verifyJwt, async (req, res) => {
+        app.get('/student/instructor/:email', verifyJwt, verifyInstrctor, async (req, res) => {
             const email = req.params.email
 
             if (req.decoded.email !== email) {
@@ -119,10 +141,9 @@ async function run() {
 
         })
 
-
         // default Student upadte for admin & instructor API
 
-        app.patch('/student/admin/:id', async (req, res) => {
+        app.patch('/student/admin/:id', verifyJwt, verifyAdmin, async (req, res) => {
             const id = req.params.id
             const filter = { _id: new ObjectId(id) }
             const updateDoc = {
@@ -134,7 +155,7 @@ async function run() {
             res.send(result)
         })
 
-        app.patch('/student/instructor/:id', async (req, res) => {
+        app.patch('/student/instructor/:id', verifyJwt, verifyAdmin, async (req, res) => {
             const id = req.params.id
             const filter = { _id: new ObjectId(id) }
             const updateDoc = {
@@ -148,22 +169,35 @@ async function run() {
 
         // classes API >>>> POST class/////
 
-        app.post('/classes', async (req, res) => {
+        app.post('/classes', verifyJwt, async (req, res) => {
             const newclasses = req.body
             const result = await classCollection.insertOne(newclasses)
             res.send(result)
         })
 
-        app.get('/classes/add/:email', async (req, res) => {
-            const email = req.params.email
+        // app.get('/classes/add/:email', verifyJwt, verifyInstrctor, verifyAdmin, async (req, res) => {
+        //     const email = req.params.email
+        //     if (!email) {
+        //         return res.send([])
+        //     }
+        //     const query = { email: email }
+        //     const result = await classCollection.find(query).toArray()
+        //     res.send(result)
+
+        // })
+
+        app.get('/classes/:email', verifyJwt, verifyInstrctor, verifyAdmin, async (req, res) => {
+            const email = req.query.email
             if (!email) {
                 return res.send([])
             }
             const query = { email: email }
-            const result = await classCollection.find(query).toArray()
+            const result = await classCollection.findOne(query)
             res.send(result)
 
         })
+
+
 
         app.get('/classes', async (req, res) => {
             const result = await classCollection.find().toArray()
@@ -171,7 +205,7 @@ async function run() {
         })
 
 
-        app.post('/booked', async (req, res) => {
+        app.post('/booked', verifyJwt, async (req, res) => {
             const course = req.body
             console.log(course)
             const result = await bookedCollection.insertOne(course)
@@ -179,7 +213,7 @@ async function run() {
 
         })
 
-        app.get('/booked', async (req, res) => {
+        app.get('/booked', verifyJwt, async (req, res) => {
             const email = req.query.email
             if (!email) {
                 return res.send([])
@@ -196,7 +230,7 @@ async function run() {
             res.send(result)
         })
 
-        app.patch('/classes/approve/:id', async (req, res) => {
+        app.patch('/classes/approve/:id', verifyJwt, verifyAdmin, async (req, res) => {
             const id = req.params.id
             const filter = { _id: new ObjectId(id) }
             const updateDoc = {
@@ -208,7 +242,7 @@ async function run() {
             res.send(result)
         })
 
-        app.patch('/classes/deny/:id', async (req, res) => {
+        app.patch('/classes/deny/:id', verifyJwt, verifyJwt, async (req, res) => {
             const id = req.params.id
             const filter = { _id: new ObjectId(id) }
             const updateDoc = {
@@ -220,8 +254,21 @@ async function run() {
             res.send(result)
         })
 
+        app.patch('/classes/feedback/:id', verifyJwt, verifyJwt, async (req, res) => {
+            const id = req.params.id
+            const body = req.body
+            const filter = { _id: new ObjectId(id) }
+            const updateDoc = {
+                $set: {
+                    feedback: body,
+                }
+            }
+            const result = await classCollection.updateOne(filter, updateDoc)
+            res.send(result)
+        })
 
-        app.delete('/student/admin/:id', async (req, res) => {
+
+        app.delete('/student/admin/:id', verifyJwt, verifyAdmin, async (req, res) => {
             const id = req.params.id
             const query = { _id: new ObjectId(id) }
             const result = await studentCollection.deleteOne(query)
@@ -296,7 +343,7 @@ async function run() {
         })
 
 
-        app.get('/payments', async (req, res) => {
+        app.get('/payments', verifyJwt, async (req, res) => {
             const email = req.query.email
             if (!email) {
                 return res.send([])
