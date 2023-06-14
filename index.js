@@ -33,17 +33,13 @@ app.get('/', (req, res) => {
     res.send('Tunig on the rythme')
 })
 
-const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.poxvpxp.mongodb.net/?retryWrites=true&w=majority`;
+// const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.poxvpxp.mongodb.net/?retryWrites=true&w=majority`;
 
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
-const client = new MongoClient(uri, {
-    serverApi: {
-        version: ServerApiVersion.v1,
-        strict: true,
-        deprecationErrors: true,
-    }
-});
+// 
+const uri = `mongodb://${process.env.DB_USER}:${process.env.DB_PASS}@ac-nazopu5-shard-00-00.poxvpxp.mongodb.net:27017,ac-nazopu5-shard-00-01.poxvpxp.mongodb.net:27017,ac-nazopu5-shard-00-02.poxvpxp.mongodb.net:27017/?ssl=true&replicaSet=atlas-10cbix-shard-0&authSource=admin&retryWrites=true&w=majority`
 
+const client = new MongoClient(uri, { useUnifiedTopology: true }, { useNewUrlParser: true }, { connectTimeoutMS: 30000 }, { keepAlive: 1 });
 async function run() {
     try {
         // Connect the client to the server	(optional starting in v4.7)
@@ -74,6 +70,7 @@ async function run() {
             }
             next();
         }
+
         const verifyInstrctor = async (req, res, next) => {
             const email = req.decoded.email;
             const query = { email: email }
@@ -84,9 +81,8 @@ async function run() {
             next();
         }
 
-
         // default Student post from client side
-        app.post('/student', verifyJwt, verifyAdmin, async (req, res) => {
+        app.post('/student', async (req, res) => {
             const student = req.body
             const query = { email: student.email }
             const existingStudent = await studentCollection.findOne(query)
@@ -99,7 +95,7 @@ async function run() {
 
         // default Student get API
 
-        app.get('/student', verifyJwt, verifyAdmin, async (req, res) => {
+        app.get('/student', async (req, res) => {
             const result = await studentCollection.find().toArray()
             res.send(result)
 
@@ -107,14 +103,14 @@ async function run() {
 
 
         // API for load all Instructors////
-        app.get('/student/instructor', verifyJwt, verifyAdmin, async (req, res) => {
+        app.get('/student/instructor', async (req, res) => {
             const result = await studentCollection.find().toArray()
             res.send(result)
         })
 
         // useAdmin API////
 
-        app.get('/student/admin/:email', verifyJwt, verifyAdmin, async (req, res) => {
+        app.get('/student/admin/:email', verifyJwt, async (req, res) => {
             const email = req.params.email
 
             if (req.decoded.email !== email) {
@@ -128,7 +124,7 @@ async function run() {
 
 
         // useInstructor API////
-        app.get('/student/instructor/:email', verifyJwt, verifyInstrctor, async (req, res) => {
+        app.get('/student/instructor/:email', verifyJwt, async (req, res) => {
             const email = req.params.email
 
             if (req.decoded.email !== email) {
@@ -143,7 +139,7 @@ async function run() {
 
         // default Student upadte for admin & instructor API
 
-        app.patch('/student/admin/:id', verifyJwt, verifyAdmin, async (req, res) => {
+        app.patch('/student/admin/:id', async (req, res) => {
             const id = req.params.id
             const filter = { _id: new ObjectId(id) }
             const updateDoc = {
@@ -155,7 +151,7 @@ async function run() {
             res.send(result)
         })
 
-        app.patch('/student/instructor/:id', verifyJwt, verifyAdmin, async (req, res) => {
+        app.patch('/student/instructor/:id', verifyJwt, async (req, res) => {
             const id = req.params.id
             const filter = { _id: new ObjectId(id) }
             const updateDoc = {
@@ -169,7 +165,7 @@ async function run() {
 
         // classes API >>>> POST class/////
 
-        app.post('/classes', verifyJwt, async (req, res) => {
+        app.post('/classes', async (req, res) => {
             const newclasses = req.body
             const result = await classCollection.insertOne(newclasses)
             res.send(result)
@@ -186,7 +182,7 @@ async function run() {
 
         // })
 
-        app.get('/classes/:email', verifyJwt, verifyInstrctor, verifyAdmin, async (req, res) => {
+        app.get('/classes/:email', async (req, res) => {
             const email = req.query.email
             if (!email) {
                 return res.send([])
@@ -198,14 +194,13 @@ async function run() {
         })
 
 
-
         app.get('/classes', async (req, res) => {
             const result = await classCollection.find().toArray()
             res.send(result)
         })
 
 
-        app.post('/booked', verifyJwt, async (req, res) => {
+        app.post('/booked', async (req, res) => {
             const course = req.body
             console.log(course)
             const result = await bookedCollection.insertOne(course)
@@ -213,7 +208,7 @@ async function run() {
 
         })
 
-        app.get('/booked', verifyJwt, async (req, res) => {
+        app.get('/booked', async (req, res) => {
             const email = req.query.email
             if (!email) {
                 return res.send([])
@@ -230,7 +225,7 @@ async function run() {
             res.send(result)
         })
 
-        app.patch('/classes/approve/:id', verifyJwt, verifyAdmin, async (req, res) => {
+        app.patch('/classes/approve/:id', verifyJwt, async (req, res) => {
             const id = req.params.id
             const filter = { _id: new ObjectId(id) }
             const updateDoc = {
@@ -242,7 +237,7 @@ async function run() {
             res.send(result)
         })
 
-        app.patch('/classes/deny/:id', verifyJwt, verifyJwt, async (req, res) => {
+        app.patch('/classes/deny/:id', verifyJwt, async (req, res) => {
             const id = req.params.id
             const filter = { _id: new ObjectId(id) }
             const updateDoc = {
@@ -254,7 +249,7 @@ async function run() {
             res.send(result)
         })
 
-        app.patch('/classes/feedback/:id', verifyJwt, verifyJwt, async (req, res) => {
+        app.patch('/classes/feedback/:id', async (req, res) => {
             const id = req.params.id
             const body = req.body
             const filter = { _id: new ObjectId(id) }
@@ -293,42 +288,6 @@ async function run() {
                 clientSecret: paymentIntent.client_secret
             })
         })
-
-
-        // app.post('/payments', async (req, res) => {
-        //     const payment = req.body
-        //     try {
-        //         const insertResult = await paymentCollection.insertOne(payment)
-        //         const email = payment.email
-        //         const query = { email: email }
-        //         const classDoc = await bookedCollection.findOne(query)
-        //         if (!classDoc) {
-        //             return res.status(404).send({ error: 'class not found' })
-        //         }
-        //         if (classDoc.seat === 0) {
-        //             return res.status(400).send({ error: 'No Available Seat' })
-
-        //         }
-        //         const updateResult = await enrollCollection.insertOne(classDoc)
-        //         await bookedCollection.deleteOne(query)
-        //         enrollCollection.updateOne({ _id: classDoc._id },
-        //             {
-        //                 $inc: {
-        //                     totalEnrollStudent: 1
-        //                 }
-        //             }
-        //         )
-        //         res.send({ insertResult, updateResult })
-
-
-        //     }
-        //     catch {
-        //         return res.status(500).send({ error: 'class not found' })
-        //     }
-
-
-        // })
-
 
         app.post('/payments', verifyJwt, async (req, res) => {
             const payment = req.body
